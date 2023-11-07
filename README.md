@@ -1,7 +1,8 @@
 
-# Frequency Identification with Kernel Regression (FINKER)
 
 ![FINKER Logo](https://see.fontimg.com/api/renderfont4/KpAp/eyJyIjoiZnMiLCJoIjo3NywidyI6MTAwMCwiZnMiOjc3LCJmZ2MiOiIjQjgxODIwIiwiYmdjIjoiI0ZGRkZGRiIsInQiOjF9/RklOS0VS/kg-second-chances-sketch.png)
+
+# Frequency Identification with Kernel Regression
 
 ## Overview
 
