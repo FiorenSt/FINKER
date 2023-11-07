@@ -12,7 +12,7 @@ FINKER (Frequency Identification with KErnel Regression) is an advanced statisti
 
 - **Local Linear and Constant Regression**: Utilizes local regression techniques for precise modeling.
 - **Kernel Functions**: Includes Gaussian, periodic, and locally periodic kernels for diverse applications.
-- **Bandwidth Calculation**: Implements Silverman's rule for optimal bandwidth determination.
+- **Bandwidth Calculation**: Implements a custom fixed bandwidth for computational efficiency. Multiple other options are available: Silverman's rule, Scott's rule, and an Adaptive bandwidth.
 - **Multiband Processing**: Capable of handling multi-frequency data efficiently.
 - **Error Handling**: Robust to measurement uncertainties, enhancing reliability in real-world datasets.
 
@@ -31,13 +31,13 @@ pip install -r requirements.txt
 Here's a simple example to demonstrate the use of FINKER's kernel regression functions:
 
 ```python
-from FINKER.src.utils import gaussian_kernel
+from FINKER.src.utils import nonparametric_kernel_regression
 
 # Example usage of the Gaussian kernel
-result = gaussian_kernel(u_value, l_squared)
+result = nonparametric_kernel_regression(t_observed, y_observed, y_uncertainties, freq)
 ```
 
-Replace `u_value` and `l_squared` with your specific parameters.
+Replace `t_observed` and `y_observed` with your observations and `freq` with the folding frequency.
 
 ## Contributing
 
