@@ -1,5 +1,4 @@
-
-# Example Script for Demonstrating Usage of Functions in utils.py
+# Example Script for FINKER
 
 import numpy as np
 import matplotlib.pyplot as plt

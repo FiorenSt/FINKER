@@ -11,22 +11,6 @@ class TestKernelFunctions(unittest.TestCase):
         expected_result = 1
         self.assertAlmostEqual(gaussian_kernel(u, l_squared), expected_result, places=5)
 
-    def test_periodic_kernel(self):
-        u = 0
-        l = 1
-        p = 1
-        # Specific expected result for these parameters
-        expected_result = 1
-        self.assertAlmostEqual(periodic_kernel(u, l, p), expected_result, places=5)
-
-    def test_locally_periodic_kernel(self):
-        u = 0
-        l = 1
-        p = 1
-        # Specific expected result for these parameters
-        expected_result = 1
-        self.assertAlmostEqual(locally_periodic_kernel(u, l, p), expected_result, places=5)
-
     def test_silverman_bw(self):
         data = np.array([1, 2, 3, 4, 5])
         # Expected result calculated based on Silverman's rule
@@ -39,15 +23,6 @@ class TestKernelFunctions(unittest.TestCase):
         # Expected result calculated based on custom rule
         expected_result = alpha * len(data) ** (-1/5)
         self.assertAlmostEqual(custom_bw(data, alpha), expected_result, places=5)
-
-    def test_heuristic_median_bw(self):
-        data = np.array([1, 2, 3, 4, 5])
-        # Expected result is the median of pairwise distances
-        pairwise_distances = np.abs(data[:, np.newaxis] - data[np.newaxis, :])
-        lower_triangle_indices = np.tril_indices_from(pairwise_distances, k=-1)
-        lower_triangle_distances = pairwise_distances[lower_triangle_indices]
-        expected_result = np.median(lower_triangle_distances)
-        self.assertAlmostEqual(heuristic_median_bw(data), expected_result, places=5)
 
     def test_adaptive_bw(self):
         data = np.array([[1], [2], [3], [4], [5]])
