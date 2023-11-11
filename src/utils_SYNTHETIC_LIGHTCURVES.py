@@ -1,6 +1,13 @@
 import numpy as np
 import pandas as pd
 from astropy.table import Table
+import warnings
+from astropy.units import UnitsWarning
+
+# Suppress UnitsWarning
+warnings.filterwarnings('ignore', category=UnitsWarning)
+
+
 
 class SyntheticLightCurveGenerator:
     def __init__(self):
@@ -15,7 +22,8 @@ class SyntheticLightCurveGenerator:
         return np.array(x), np.array(y)
 
 
-    def get_mag_stddev_relation(self, upper=13, lower=20, degree=5):
+    @staticmethod
+    def get_mag_stddev_relation(upper=13, lower=20, degree=5):
 
         # Get magnitude standard deviation relation method
         dat = Table.read('DATA/16010_ML1_16010_q_20210428_red_cat.fits', format='fits')
@@ -23,7 +31,7 @@ class SyntheticLightCurveGenerator:
         df = df.loc[((df.MAG_OPT > upper) & (df.MAG_OPT < lower))]
         x = np.array(df.MAG_OPT.tolist())
         y = np.sqrt(1.) * np.array(df.MAGERR_OPT.tolist())
-        xx, yy = self.sort_on_x(x, y)
+        xx, yy = SyntheticLightCurveGenerator.sort_on_x(x, y)
         dy = pd.Series(yy)
         yq = np.array(dy.rolling(500).quantile(0.25).tolist())
 
@@ -36,18 +44,17 @@ class SyntheticLightCurveGenerator:
         ## !! returns function !!
         return fx
 
-
-    def generate_synthetic_light_curve(self, n_points=500, time=10, freq_primary=1,
+    @staticmethod
+    def generate_synthetic_light_curve(n_points=500, time=10, freq_primary=1,
                                        amplitude_primary=1, freq_secondary=1,
                                        amplitude_secondary=0, eclipse_depth=0,
                                        baseline_magnitude=17.0, noise_function=None,
                                        n_repeats=10, random_seed=None):
-        # Generate synthetic light curve method
         if random_seed is not None:
             np.random.seed(random_seed)
 
         if noise_function is None:
-            noise_function = self.get_mag_stddev_relation()
+            noise_function = SyntheticLightCurveGenerator.get_mag_stddev_relation()
         noise_std = noise_function(baseline_magnitude)
 
         # Time vector
@@ -81,14 +88,13 @@ class SyntheticLightCurveGenerator:
 
 import matplotlib.pyplot as plt
 
-# Instantiate the class
-generator = SyntheticLightCurveGenerator()
 
 # Generate a synthetic light curve
-t_observed, y_magnitude_observed, sigma = generator.generate_synthetic_light_curve(
+t_observed, y_magnitude_observed, sigma = SyntheticLightCurveGenerator.generate_synthetic_light_curve(
     n_points=500, time=10, freq_primary=1, amplitude_primary=1, freq_secondary=1,
     amplitude_secondary=0, eclipse_depth=0, baseline_magnitude=17.0,
     noise_function=None, n_repeats=10, random_seed=42)
+
 
 # Plotting the light curve
 plt.figure(figsize=(10, 6))
