@@ -473,8 +473,6 @@ class FINKER:
             Best frequency, estimated uncertainty, significance status, and result dictionary.
         """
         self.params.update(kwargs)
-        print(
-            f"parallel_nonparametric_kernel_regression parameters: t_observed={t_observed}, y_observed={y_observed}, freq_list={freq_list}, data_type={data_type}, n_jobs={n_jobs}, verbose={verbose}, n_bootstrap={n_bootstrap}, kwargs={kwargs}")
 
         def task_for_each_frequency(freq):
             result = self.nonparametric_kernel_regression(t_observed, y_observed, freq,
@@ -626,10 +624,6 @@ class FINKER:
         # Capture necessary parameters
         current_params = self.params
 
-        print(f"bootstrap_uncertainty_estimation parameters:  uncertainties={uncertainties}, alpha={self.params['alpha']}, gid_size={self.params['grid_size']}, use_grid={self.params['use_grid']}")
-        print(f"bootstrap_uncertainty_estimation parameters:  uncertainties={uncertainties}, alpha={current_params['alpha']}, gid_size={current_params['grid_size']}, use_grid={current_params['use_grid']}")
-
-
         def bootstrap_task(_):
             # Accessing method parameters dynamically
             if uncertainties is not None:
@@ -671,48 +665,3 @@ class FINKER:
 
 
 
-
-
-
-# Creating a FINKER instance with custom parameters
-finker = FINKER(use_grid=True, alpha=0.0618, bandwidth_method='custom')
-
-# Creating dummy data to test the method again
-t_observed = np.random.rand(100) * 10  # Random time values
-y_observed = np.sin(t_observed) + np.random.normal(0, 0.1, 100)  # Sine wave with noise
-freq = 1.0  # Frequency for phase folding
-
-# # Testing the nonparametric_kernel_regression method
-# result = finker.nonparametric_kernel_regression(
-#     t_observed=t_observed,
-#     y_observed=y_observed,
-#     freq=freq,
-#     # alpha=finker.params['alpha'],
-#     # uncertainties=None,
-#     grid_size=300,
-#     show_plot=False,
-#     kernel_type='gaussian',
-#     regression_type='local_constant',
-#     bandwidth_method='custom'
-# )
-
-# result
-
-
-freq = np.array(range(0,10,2))
-
-
-# Testing the parallel_nonparametric_kernel_regression method
-result = finker.parallel_nonparametric_kernel_regression(
-    t_observed=t_observed,
-    y_observed=y_observed,
-    freq_list=freq,
-    # alpha=finker.params['alpha'],
-    uncertainties=None,
-    use_grid=False,
-    grid_size=300,
-    show_plot=False,
-    kernel_type='gaussian',
-    regression_type='local_constant',
-    bandwidth_method='custom'
-)

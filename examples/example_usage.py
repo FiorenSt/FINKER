@@ -3,15 +3,14 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
-from src.utils import gaussian_kernel, periodic_kernel, locally_periodic_kernel, silverman_bw
 from src.utils_SYNTHETIC_LIGHTCURVES import *
-from src.FINKER import *
+from src.utils_FINKER import *
 from src.utils_Entropy import *
 
 
 # Generate a synthetic light curve
 t_observed, y_magnitude_observed, sigma = SyntheticLightCurveGenerator.generate_synthetic_light_curve(
-    n_points=500, time=10, freq_primary=1, amplitude_primary=1, freq_secondary=1,
+    n_points=50, time=10, freq_primary=1, amplitude_primary=1, freq_secondary=1,
     amplitude_secondary=0, eclipse_depth=0, baseline_magnitude=17.0,
     noise_function=None, n_repeats=10, random_seed=42)
 
@@ -27,7 +26,7 @@ plt.show()
 
 
 # Set up the frequency range for the search
-freq = np.array(range(0,10,2))
+freq = np.array(range(0.01,2,100))
 
 # Creating a FINKER instance
 finker = FINKER()
