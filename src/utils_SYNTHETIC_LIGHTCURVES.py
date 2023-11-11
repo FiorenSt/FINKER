@@ -84,31 +84,3 @@ class SyntheticLightCurveGenerator:
 
 
 
-
-
-import matplotlib.pyplot as plt
-
-
-# Generate a synthetic light curve
-t_observed, y_magnitude_observed, sigma = SyntheticLightCurveGenerator.generate_synthetic_light_curve(
-    n_points=500, time=10, freq_primary=1, amplitude_primary=1, freq_secondary=1,
-    amplitude_secondary=0, eclipse_depth=0, baseline_magnitude=17.0,
-    noise_function=None, n_repeats=10, random_seed=42)
-
-
-# Plotting the light curve
-plt.figure(figsize=(10, 6))
-plt.errorbar(t_observed, y_magnitude_observed, yerr=sigma, fmt='o', markersize=5)
-plt.xlabel('Time')
-plt.ylabel('Magnitude')
-plt.title('Synthetic Light Curve')
-plt.gca().invert_yaxis()  # Inverting y-axis for magnitude
-plt.show()
-
-
-
-
-
-
-
-

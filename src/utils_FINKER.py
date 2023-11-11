@@ -481,23 +481,19 @@ class FINKER:
                                                           bandwidth_method=self.params['bandwidth_method'],
                                                           alpha=self.params['alpha'],
                                                           use_grid=self.params['use_grid'])
-            return result[4], result[5]  # Returning squared_residual and residuals
+            return result[4] # Returning squared_residual and residuals
 
         # Parallel processing
         with Parallel(n_jobs=n_jobs, verbose=verbose) as parallel:
             broad_results = parallel(delayed(task_for_each_frequency)(freq) for freq in freq_list)
+        broad_result_dict = dict(zip(freq_list, broad_results))
 
-        # Extracting residuals and squared residuals
-        residuals_dict = {freq: result[1] for freq, result in zip(freq_list, broad_results)}
-        squared_residuals = [result[0] for result in broad_results]
-
-        initial_best_freq = freq_list[np.argmin(squared_residuals)]
-        initial_best_residuals = residuals_dict[initial_best_freq]
+        initial_best_freq = freq_list[np.argmin(broad_results)]
 
         # Significance checks
         if data_type in ['periodic']:
             significance_status, significant_freq = self.check_frequency_significance(initial_best_freq,
-                                                                                      squared_residuals, freq_list)
+                                                                                      broad_results, freq_list)
         else:
             significance_status = 'not_applicable'
             significant_freq = initial_best_freq
@@ -507,20 +503,20 @@ class FINKER:
         tight_freq_range = np.linspace(significant_freq * (1 - search_width), significant_freq * (1 + search_width),
                                        10000)
         tight_results = parallel(delayed(task_for_each_frequency)(freq) for freq in tight_freq_range)
-        tight_residuals_dict = {freq: result[1] for freq, result in zip(tight_freq_range, tight_results)}
-        tight_result_dict = {freq: result[0] for freq, result in zip(tight_freq_range, tight_results)}
+        tight_result_dict = dict(zip(tight_freq_range, tight_results))
 
         final_best_freq = min(tight_result_dict, key=tight_result_dict.get)
-        final_best_residuals = tight_residuals_dict[final_best_freq]
-        combined_result_dict = {**residuals_dict, **tight_residuals_dict}
+        final_best_residual = tight_result_dict[final_best_freq]
+        combined_result_dict = {**broad_result_dict, **tight_result_dict}
 
         # Bootstrap uncertainty estimation with residuals at optimal frequency
         estimated_uncertainty = self.bootstrap_uncertainty_estimation(
             t_observed, y_observed, kwargs.get('uncertainties'), final_best_freq, n_bootstrap, len(t_observed), n_jobs,
-            residuals=final_best_residuals
+            residual=final_best_residual
         )
 
-        return final_best_freq, estimated_uncertainty, significance_status, combined_result_dict, final_best_residuals
+        return final_best_freq, estimated_uncertainty, significance_status, combined_result_dict, final_best_residual
+
 
     def check_frequency_significance(self, freq, objective_values, freq_range, search_width=0.001, **kwargs):
         """
@@ -592,7 +588,7 @@ class FINKER:
         return 'best', freq
 
 
-    def bootstrap_uncertainty_estimation(self, t_observed, y_observed, uncertainties, best_freq, n_bootstrap, sample_size, n_jobs, residuals, **kwargs):
+    def bootstrap_uncertainty_estimation(self, t_observed, y_observed, uncertainties, best_freq, n_bootstrap, sample_size, n_jobs, residual, **kwargs):
         """
         Perform bootstrap sampling and kernel regression to estimate uncertainties.
 
@@ -648,7 +644,7 @@ class FINKER:
         with Parallel(n_jobs=n_jobs) as parallel:
             bootstrap_results = parallel(delayed(bootstrap_task)(_) for _ in range(n_bootstrap))
 
-        bootstrap_variability = np.std(bootstrap_results)/residuals
+        bootstrap_variability = np.std(bootstrap_results)/residual
 
         # Load the saved model and PolynomialFeatures object
         glm_poly = joblib.load(self.glm_model_path)
@@ -664,4 +660,59 @@ class FINKER:
         return estimated_uncertainty
 
 
+    def process_multiband_data(self, multiband_data, freq_list, **kwargs):
+        """
+        Process multiband observational data, combine and normalize residuals.
+
+        Parameters:
+        -----------
+        multiband_data : dict
+            Dictionary containing observational data for each band.
+            Format: {'band_name': (t_observed, y_observed, uncertainties), ...}
+        freq_list : array_like
+            List of frequencies for phase folding.
+        **kwargs : dict
+            Additional arguments for regression methods.
+
+        Returns:
+        --------
+        dict
+            Combined results from all bands and normalized combined residuals.
+        """
+        combined_results = {}
+        total_sample_size = 0
+        combined_scaled_residuals = 0
+
+        for band, (t_observed, y_observed, uncertainties) in multiband_data.items():
+            # Update parameters for current band
+            self.params.update(kwargs.get(band, {}))
+
+            # Perform parallel regression for the current band
+            best_freq, estimated_uncertainty, significance_status, result_dict, final_best_residual = \
+                self.parallel_nonparametric_kernel_regression(
+                    t_observed, y_observed, freq_list, uncertainties=uncertainties, **self.params
+                )
+
+            # Store results for the current band
+            combined_results[band] = {
+                'best_frequency': best_freq,
+                'estimated_uncertainty': estimated_uncertainty,
+                'significance_status': significance_status,
+                'result_dict': result_dict,
+                'final_best_residuals': final_best_residual
+            }
+
+            # Extract, scale, and sum squared residuals
+            band_sample_size = len(t_observed)
+            total_sample_size += band_sample_size
+            band_residuals = result_dict['final_best_residuals']  # Extracting residuals from the result dictionary
+            combined_scaled_residuals += band_residuals / band_sample_size
+
+        # Normalize the combined residuals
+        if total_sample_size > 0:
+            combined_scaled_residuals /= total_sample_size
+
+        combined_results['combined_scaled_residuals'] = combined_scaled_residuals
+
+        return combined_results
 

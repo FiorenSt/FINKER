@@ -1,9 +1,7 @@
 ### LOCAL LINEAR REGRESSION AND LOCAL CONSTANT REGRESSION
 import matplotlib.pyplot as plt
 from joblib import Parallel, delayed
-
-
-
+import numpy as np
 
 
 # Correcting the indentation and finishing the class definition
@@ -137,20 +135,3 @@ class EntropyFunctions:
 
 
 
-
-import numpy  as np
-from UNUSED_CODE.utils import generate_synthetic_light_curve
-
-# Generate synthetic light curve
-t_observed, y_observed, uncertainties = generate_synthetic_light_curve(n_points=75,
-                                                                       freq_primary=1, amplitude_primary=.1, time=10,
-                                                                       freq_secondary=0, amplitude_secondary=0,
-                                                                       eclipse_depth=0,
-                                                                                           random_seed=5)
-
-
-freq_list = np.linspace(0,2,100)
-
-entropy=EntropyFunctions()
-
-best_freq, best_entropy, results = entropy.parallel_conditional_entropy(t_observed, y_observed,freq_list)
