@@ -2,11 +2,10 @@
 
 ![FINKER Logo](https://see.fontimg.com/api/renderfont4/KpAp/eyJyIjoiZnMiLCJoIjo3NywidyI6MTAwMCwiZnMiOjc3LCJmZ2MiOiIjQjgxODIwIiwiYmdjIjoiI0ZGRkZGRiIsInQiOjF9/RklOS0VS/kg-second-chances-sketch.png)
 
-# Frequency Identification with Kernel Regression
 
 ## Overview
 
-FINKER (Frequency Identification with KErnel Regression) is an advanced statistical tool for optimal frequency identification using nonparametric kernel regression. It is designed to offer more accurate estimation in various contexts, including handling measurement uncertainties and facilitating multiband processing, even with as few as 10 observations. The project leverages the power of kernel regression methods to provide robust, flexible analysis, particularly valuable in astronomical and statistical applications.
+FINKER (Frequency Identification through Nonparametric Kernel Regression) is an advanced statistical tool for optimal frequency identification using nonparametric kernel regression. It is designed to offer more accurate estimation in various contexts, including handling measurement uncertainties and facilitating multiband processing, even with as few as 10 observations. The project leverages the power of kernel regression methods to provide robust, flexible analysis, particularly valuable in astronomical and statistical applications.
 
 ## Features
 
@@ -31,10 +30,23 @@ pip install -r requirements.txt
 Here's a simple example to demonstrate the use of FINKER's kernel regression functions:
 
 ```python
-from FINKER.src.utils import nonparametric_kernel_regression
+from FINKER.src.utils_FINKER import *
 
-# Example usage of the Gaussian kernel
-result = nonparametric_kernel_regression(t_observed, y_observed, y_uncertainties, freq)
+# Creating a FINKER instance
+finker = FINKER()
+
+# Running a parallel FINKER search
+best_freq, freq_err, result_dict = finker.parallel_nonparametric_kernel_regression(
+    t_observed=t_observed,
+    y_observed=y_observed,
+    freq_list=freq,
+    uncertainties=None,
+    show_plot=False,
+    kernel_type='gaussian',
+    regression_type='local_constant',
+    bandwidth_method='custom',
+    n_jobs=-2
+)
 ```
 
 Replace `t_observed` and `y_observed` with your observations and `freq` with the folding frequency.
@@ -49,4 +61,4 @@ This project is licensed under the [Apache License](LICENSE) - see the LICENSE f
 
 ## Contact
 
-For any queries or further information, please reach out to [Your Contact Information].
+For any queries or further information, please reach out to f.stoppa@astro.ru.nl.
