@@ -270,8 +270,8 @@ class FINKER:
     def nonparametric_kernel_regression(self, t_observed, y_observed, freq, l=None, alpha=None,
                                         uncertainties=None, grid_size=300,
                                         show_plot=False, kernel_type='gaussian',
-                                        regression_type='local_constant', bandwidth_method='silverman',
-                                        adaptive_neighbours=None, use_grid=True):
+                                        regression_type='local_constant', bandwidth_method='custom',
+                                        adaptive_neighbours=None, use_grid=False):
         """
         Performs nonparametric kernel regression.
 
@@ -442,13 +442,14 @@ class FINKER:
         else:
             return phase_sorted, y_smoothed_original, x_eval_in_interval, y_estimates_in_interval, squared_residual, l
 
-
-
-    def parallel_nonparametric_kernel_regression(self, t_observed, y_observed, freq_list, data_type='periodic',
-                                                 n_jobs=-2, verbose=0, n_bootstrap=1000, **kwargs):
+    def parallel_nonparametric_kernel_regression(self, t_observed, y_observed,freq_list, uncertainties=None,  use_grid=None,
+                                                 n_jobs=-2, verbose=0, n_bootstrap=1000,
+                                                 tight_check_points=1000, search_width=0.001,
+                                                 estimate_uncertainties=False, bootstrap_points=100, bootstrap_width=0.005,
+                                                 **kwargs):
         """
         Apply nonparametric_kernel_regression for a list of frequencies in parallel,
-        find the best frequency, and estimate the uncertainties.
+        find the best frequency, and optionally estimate the uncertainties.
 
         Parameters:
         -----------
@@ -464,81 +465,96 @@ class FINKER:
             The number of jobs to run in parallel.
         n_bootstrap : int
             The number of bootstrap samples for uncertainty estimation.
+        enable_tight_check : bool, optional
+            Whether to perform an additional tight frequency check.
+        tight_check_points : int, optional
+            Number of points to use in the tight frequency check.
+        search_width : float, optional
+            The width of the search range in the tight check.
+        estimate_uncertainties : bool, optional
+            Whether to estimate uncertainties using bootstrap.
         **kwargs : dict
             Keyword arguments to pass to nonparametric_kernel_regression.
 
         Returns:
         --------
         tuple
-            Best frequency, estimated uncertainty, significance status, and result dictionary.
+            Best frequency, estimated uncertainty (if calculated), significance status, and result dictionary.
         """
+
         self.params.update(kwargs)
 
+        if use_grid is None:
+            use_grid = len(t_observed) > 300
+            grid_size = 300 if use_grid else None
+
+        if use_grid:
+            print('Using a 300 points grid.')
+
         def task_for_each_frequency(freq):
-            result = self.nonparametric_kernel_regression(t_observed, y_observed, freq,
+            result = self.nonparametric_kernel_regression(t_observed=t_observed, y_observed=y_observed,
+                                                          uncertainties=uncertainties,
+                                                          freq=freq,
                                                           kernel_type=self.params['kernel_type'],
                                                           regression_type=self.params['regression_type'],
                                                           bandwidth_method=self.params['bandwidth_method'],
                                                           alpha=self.params['alpha'],
-                                                          use_grid=self.params['use_grid'])
-            return result[4] # Returning squared_residual and residuals
+                                                          use_grid=use_grid, grid_size=grid_size)
+            return result[4]  # Returning squared_residual and residuals
 
         # Parallel processing
         with Parallel(n_jobs=n_jobs, verbose=verbose) as parallel:
             broad_results = parallel(delayed(task_for_each_frequency)(freq) for freq in freq_list)
-        broad_result_dict = dict(zip(freq_list, broad_results))
 
         initial_best_freq = freq_list[np.argmin(broad_results)]
 
         # Significance checks
-        if data_type in ['periodic']:
-            significance_status, significant_freq = self.check_frequency_significance(initial_best_freq,
-                                                                                      broad_results, freq_list)
-        else:
-            significance_status = 'not_applicable'
-            significant_freq = initial_best_freq
+        significance_results = self.check_frequency_significance(initial_best_freq, broad_results, freq_list)
+        significant_frequencies = [freq for _, freq in significance_results]
 
-        # Tight frequency range search
-        search_width = 0.01
-        tight_freq_range = np.linspace(significant_freq * (1 - search_width), significant_freq * (1 + search_width),
-                                       10000)
-        tight_results = parallel(delayed(task_for_each_frequency)(freq) for freq in tight_freq_range)
-        tight_result_dict = dict(zip(tight_freq_range, tight_results))
+        # Initialize dictionary to hold all results
+        combined_result_dict = dict(zip(freq_list, broad_results))
 
-        final_best_freq = min(tight_result_dict, key=tight_result_dict.get)
-        final_best_residual = tight_result_dict[final_best_freq]
-        combined_result_dict = {**broad_result_dict, **tight_result_dict}
+        for freq in significant_frequencies:
+            # Tight frequency range search for each significant frequency
+            tight_freq_range = np.linspace(freq * (1 - search_width), freq * (1 + search_width), tight_check_points)
+            tight_results = parallel(delayed(task_for_each_frequency)(f) for f in tight_freq_range)
+            combined_result_dict.update(dict(zip(tight_freq_range, tight_results)))
 
-        # Bootstrap uncertainty estimation with residuals at optimal frequency
-        estimated_uncertainty = self.bootstrap_uncertainty_estimation(
-            t_observed, y_observed, kwargs.get('uncertainties'), final_best_freq, n_bootstrap, len(t_observed), n_jobs,
-            residual=final_best_residual
-        )
-
-        return final_best_freq, estimated_uncertainty, significance_status, combined_result_dict, final_best_residual
+        # Find the frequency with the overall smallest residual
+        final_best_freq = min(combined_result_dict, key=combined_result_dict.get)
 
 
-    def check_frequency_significance(self, freq, objective_values, freq_range, search_width=0.001, **kwargs):
+        estimated_uncertainty = None
+        if estimate_uncertainties:
+            # Bootstrap uncertainty estimation with residuals at optimal frequency
+            estimated_uncertainty = self.bootstrap_uncertainty_estimation(
+                t_observed, y_observed, kwargs.get('uncertainties'), final_best_freq, n_bootstrap,
+                n_jobs,bootstrap_points,bootstrap_width
+            )
+
+        return final_best_freq, estimated_uncertainty, combined_result_dict
+
+
+    def check_frequency_significance(self, freq, objective_values, freq_range, **kwargs):
         """
-        Check the significance of a frequency and its multiples for the highest significant match.
+        Check the significance of a frequency, its double (x2), and half (/2).
 
         Parameters:
         -----------
         freq : float
-            The frequency to check.
+            The initial best frequency to check.
         objective_values : array_like
             Objective values for each frequency in the range.
         freq_range : array_like
             The range of frequencies to consider.
         search_width : float, optional
             The width for searching around the significant frequency.
-        **kwargs : dict, optional
-            Additional class-level parameters.
 
         Returns:
         --------
         tuple
-            The significance status and the best frequency within the range.
+            The frequencies to further explore based on significance.
         """
 
         # Update class-level parameters if any
@@ -546,49 +562,31 @@ class FINKER:
 
         significance_threshold = np.percentile(objective_values, .1)
 
-        # Checking multiples of the frequency
-        multiples = [2, 3, 4, 5]
-        significant_multiples = []
-        for multiple in multiples:
-            test_freq = freq * multiple
+        # Check significance of the main frequency, x2, and /2
+        frequencies_to_check = [freq, freq * 2, freq / 2]
+
+        # Initialize an empty list to store significant frequencies with labels
+        significant_freqs_with_labels = []
+
+        for test_freq in frequencies_to_check:
             test_freq_idx = np.abs(freq_range - test_freq).argmin()
             test_freq_obj_val = objective_values[test_freq_idx]
 
             if test_freq_obj_val < significance_threshold:
-                significant_multiples.append((multiple, test_freq, test_freq_idx))
+                label = 'x2' if test_freq == freq * 2 else '/2' if test_freq == freq / 2 else 'best'
+                significant_freqs_with_labels.append((label, test_freq))
+                print(f"Frequency {test_freq} labeled as '{label}' is significant and will be further explored.")
 
-        # Finding the highest significant multiple
-        if significant_multiples:
-            highest_significant_multiple = max(significant_multiples, key=lambda x: x[0])
-            ratio, test_freq, test_freq_idx = highest_significant_multiple
+        if not significant_freqs_with_labels:
+            print('No significant multiples found. Considering the initial frequency with caution.')
+            significant_freqs_with_labels.append(('best', freq))
 
-            # Search range around the highest significant frequency
-            lower_bound = test_freq - search_width * test_freq
-            upper_bound = test_freq + search_width * test_freq
-
-            # Find the best frequency within the search range
-            search_indices = [i for i, f in enumerate(freq_range) if lower_bound <= f <= upper_bound]
-            if search_indices:
-                best_in_range_idx = search_indices[np.argmin([objective_values[i] for i in search_indices])]
-                return f'multiple_{ratio}', freq_range[best_in_range_idx]
-            else:
-                return f'multiple_{ratio}', freq_range[test_freq_idx]
-
-        # Checking subharmonics if no significant multiples are found
-        subharmonics = [0.5, 1/3, 1/4, 1/5]
-        for subharmonic in subharmonics:
-            test_freq = freq * subharmonic
-            test_freq_idx = np.abs(freq_range - test_freq).argmin()
-            test_freq_obj_val = objective_values[test_freq_idx]
-
-            if test_freq_obj_val < significance_threshold:
-                break  # Subharmonic is significant, but not the main frequency
-
-        # Return the original frequency if no significant multiples are found
-        return 'best', freq
+        return significant_freqs_with_labels
 
 
-    def bootstrap_uncertainty_estimation(self, t_observed, y_observed, uncertainties, best_freq, n_bootstrap, sample_size, n_jobs, residual, **kwargs):
+
+    def bootstrap_uncertainty_estimation(self, t_observed, y_observed, uncertainties, best_freq, n_bootstrap,
+                                         n_jobs, bootstrap_points, bootstrap_width=0.005, **kwargs):
         """
         Perform bootstrap sampling and kernel regression to estimate uncertainties.
 
@@ -608,55 +606,59 @@ class FINKER:
             The size of the sample.
         n_jobs : int
             The number of jobs to run in parallel.
+        bootstrap_points : int
+            Number of points to use in the tight frequency check.
+        bootstrap_width : float
+            The width of the search range in the tight check.
 
         Returns:
         --------
         float
             The estimated true uncertainty.
         """
-        # Update class-level parameters with any additional arguments provided
         self.params.update(kwargs)
 
-        # Capture necessary parameters
-        current_params = self.params
 
         def bootstrap_task(_):
-            # Accessing method parameters dynamically
+            if bootstrap_points <= 0:
+                raise ValueError(f"Invalid number of tight check points: {bootstrap_points}. Must be positive.")
+
+            # Check if uncertainties is None
             if uncertainties is not None:
-                t_resampled, y_resampled, uncertainties_resampled = resample(t_observed, y_observed, uncertainties)
-                _, _, _, _, squared_residual, _ = self.nonparametric_kernel_regression(
-                    t_resampled, y_resampled, best_freq, uncertainties=uncertainties_resampled,
-                    use_grid=current_params['use_grid'],
-                    bandwidth_method=current_params['bandwidth_method'],
-                    alpha=current_params['alpha']
-                )
+                t_resampled, y_resampled, uncertainties_resamples = resample(t_observed, y_observed, uncertainties)
             else:
                 t_resampled, y_resampled = resample(t_observed, y_observed)
-                _, _, _, _, squared_residual, _ = self.nonparametric_kernel_regression(
-                    t_resampled, y_resampled, best_freq,
-                    use_grid=current_params['use_grid'],
-                    bandwidth_method=current_params['bandwidth_method'],
-                    alpha=current_params['alpha']
-                )
-            return squared_residual
+                uncertainties_resamples = None
 
-        # Bootstrap sampling using joblib's Parallel
-        with Parallel(n_jobs=n_jobs) as parallel:
-            bootstrap_results = parallel(delayed(bootstrap_task)(_) for _ in range(n_bootstrap))
+            def task_for_each_frequency(freq):
+                result = self.nonparametric_kernel_regression(t_observed=t_resampled, y_observed=y_resampled,
+                                                              uncertainties=uncertainties_resamples,
+                                                              freq=freq,
+                                                              kernel_type=self.params['kernel_type'],
+                                                              regression_type=self.params['regression_type'],
+                                                              bandwidth_method=self.params['bandwidth_method'],
+                                                              alpha=self.params['alpha'],
+                                                              use_grid=self.params['use_grid'])
+                return result[4]  # Returning squared_residual and residuals
 
-        bootstrap_variability = np.std(bootstrap_results)/residual
+            # Generate a tight frequency range around the best frequency
+            tight_freq_range = np.linspace(best_freq * (1 - bootstrap_width), best_freq * (1 + bootstrap_width), bootstrap_points)
 
-        # Load the saved model and PolynomialFeatures object
-        glm_poly = joblib.load(self.glm_model_path)
-        poly = joblib.load(self.poly_transform_path)
+            # Evaluate the small grid around the best frequency
+            with Parallel(n_jobs=n_jobs) as parallel:
+                tight_results = parallel(delayed(task_for_each_frequency)(f) for f in tight_freq_range)
 
-        # Predict the estimated uncertainty
-        x2 = np.log10(sample_size)
-        x1 = bootstrap_variability
-        new_X = np.array([[x1, x2]])
-        new_X_transformed = poly.transform(new_X)
+            # Find the frequency with the smallest residual in the resampled data
+            min_freq = tight_freq_range[np.argmin(tight_results)]
+            return min_freq
 
-        estimated_uncertainty = glm_poly.predict(new_X_transformed)[0]
+
+        # Bootstrap sampling
+        bootstrap_freqs = [bootstrap_task(_) for _ in range(n_bootstrap)]
+
+        # Calculate the standard deviation of the best frequencies as the uncertainty measure
+        estimated_uncertainty = np.std(bootstrap_freqs)
+
         return estimated_uncertainty
 
 

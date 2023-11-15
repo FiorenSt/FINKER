@@ -90,7 +90,8 @@ class EntropyFunctions:
         _, H = self.perform_conditional_entropy_phase_folding(t, y_observed, freq)
         return H  # Return conditional entropy
 
-    def parallel_conditional_entropy(self, t_observed, y_observed, freq_list, n_jobs=-2, verbose=0, search_width=0.01):
+    def parallel_conditional_entropy(self, t_observed, y_observed, freq_list, n_jobs=-2, verbose=0,
+                                     search_width=0.001, enable_tight_check=False, tight_check_points=1000):
         """
         Calculate conditional entropy for a list of frequencies in parallel.
 
@@ -101,6 +102,7 @@ class EntropyFunctions:
         - n_jobs (int, optional): The number of jobs to run in parallel. Default is -2.
         - verbose (int, optional): Verbosity level for parallel processing. Default is 0.
         - search_width (float, optional): Width of the focused search around the best frequency. Default is 0.01.
+        - enable_tight_check (bool, optional): Whether to perform a tighter grid search. Default is True.
 
         Returns:
         - tuple: Best frequency, entropy, and a dictionary of frequencies and their entropies
@@ -118,19 +120,23 @@ class EntropyFunctions:
         broad_result_dict = dict(zip(freq_list, entropy_results))
         best_freq = min(broad_result_dict, key=broad_result_dict.get)
 
-        # Tighter grid search around the best frequency
-        tight_freq_range = np.linspace(best_freq * (1 - search_width), best_freq * (1 + search_width), 1000)
-        with Parallel(n_jobs=n_jobs, verbose=verbose) as parallel:
-            tight_entropy_results = parallel(delayed(task_for_each_frequency)(freq) for freq in tight_freq_range)
+        if enable_tight_check:
+            # Tighter grid search around the best frequency
+            tight_freq_range = np.linspace(best_freq * (1 - search_width), best_freq * (1 + search_width), tight_check_points)
+            with Parallel(n_jobs=n_jobs, verbose=verbose) as parallel:
+                tight_entropy_results = parallel(delayed(task_for_each_frequency)(freq) for freq in tight_freq_range)
 
-        tight_result_dict = dict(zip(tight_freq_range, tight_entropy_results))
-        best_tight_freq = min(tight_result_dict, key=tight_result_dict.get)
-        best_tight_entropy = tight_result_dict[best_tight_freq]
+            tight_result_dict = dict(zip(tight_freq_range, tight_entropy_results))
+            best_tight_freq = min(tight_result_dict, key=tight_result_dict.get)
+            best_tight_entropy = tight_result_dict[best_tight_freq]
 
-        # Combine results from both searches
-        combined_result_dict = {**broad_result_dict, **tight_result_dict}
+            # Combine results from both searches
+            combined_result_dict = {**broad_result_dict, **tight_result_dict}
 
-        return best_tight_freq, best_tight_entropy, combined_result_dict
+            return best_tight_freq, best_tight_entropy, combined_result_dict
+        else:
+            # If tight check is not enabled, use the results from the broad search
+            return best_freq, broad_result_dict[best_freq], broad_result_dict
 
 
 
