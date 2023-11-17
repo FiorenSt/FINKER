@@ -30,7 +30,7 @@ finker = FINKER()
 
 # Running a parallel FINKER search
 best_freq, freq_err, result_dict = finker.parallel_nonparametric_kernel_regression(
-    t_observed=t_observed,
+    t_observed=t_observed, 
     y_observed=y_observed,
     uncertainties=uncertainties,
     freq_list=freq,
@@ -40,12 +40,12 @@ best_freq, freq_err, result_dict = finker.parallel_nonparametric_kernel_regressi
     bandwidth_method='custom',
     n_jobs=-2,
     verbose=1,
-    tight_check_points=1000, 
-    search_width=0.001,
-    estimate_uncertainties=False,
-    n_bootstrap=1000,
-    bootstrap_points=100,
-    bootstrap_width=0.005
+    search_width=0.001, #once the best frequency (or multiple potential ones) has been found, it will better search in a 0.1% range from that frequency
+    tight_check_points=1000,  #number of points used in the tight search
+    estimate_uncertainties=True, #enabling the uncertainties estimate procedure
+    n_bootstrap=1000, #number of repetitions of the procedure
+    bootstrap_width=0.005 #grid size of .5% around the best frequency to evaluate the uncertainties
+    bootstrap_points=100, #number of points used for the evaluation
 )
 
 
