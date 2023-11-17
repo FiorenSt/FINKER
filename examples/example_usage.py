@@ -29,17 +29,23 @@ freq = np.linspace(0.001,2,1000)
 finker = FINKER()
 
 # Running a parallel FINKER search
-best_freq, freq_err, _, result_dict, _ = finker.parallel_nonparametric_kernel_regression(
+best_freq, freq_err, result_dict = finker.parallel_nonparametric_kernel_regression(
     t_observed=t_observed,
     y_observed=y_observed,
+    uncertainties=uncertainties,
     freq_list=freq,
-    uncertainties=None,
     show_plot=False,
     kernel_type='gaussian',
     regression_type='local_constant',
     bandwidth_method='custom',
-    use_grid = True,
-    n_jobs=-2
+    n_jobs=-2,
+    verbose=1,
+    tight_check_points=1000, 
+    search_width=0.001,
+    estimate_uncertainties=False,
+    n_bootstrap=1000,
+    bootstrap_points=100,
+    bootstrap_width=0.005
 )
 
 
