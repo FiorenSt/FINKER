@@ -23,7 +23,7 @@ class SyntheticLightCurveGenerator:
 
 
     @staticmethod
-    def get_mag_stddev_relation(upper=13, lower=20, degree=5):
+    def get_mag_stddev_relation(upper=12, lower=22, degree=5):
 
         # Get magnitude standard deviation relation method
         dat = Table.read('DATA/16010_ML1_16010_q_20210428_red_cat.fits', format='fits')
@@ -39,23 +39,30 @@ class SyntheticLightCurveGenerator:
         yq = yq[idx]
         xx = xx[idx]
 
-        fx = np.polynomial.Polynomial.fit(xx, yq, degree, domain=[0, 1], window=[0, 1])
+        fx = np.polynomial.Polynomial.fit(xx, yq, degree, window=[0, 1])
 
         ## !! returns function !!
         return fx
 
     @staticmethod
+    def magnitude_to_flux(magnitude, zero_point_flux=1.0):
+        return zero_point_flux * np.power(10, -0.4 * magnitude)
+
+    @staticmethod
+    def calculate_flux_uncertainty(magnitude, magnitude_uncertainty, zero_point_flux=1.0):
+        flux = SyntheticLightCurveGenerator.magnitude_to_flux(magnitude, zero_point_flux)
+        return flux * np.log(10) * 0.4 * magnitude_uncertainty
+
+    @staticmethod
     def generate_synthetic_light_curve(n_points=500, time=10, freq_primary=1,
                                        amplitude_primary=1, freq_secondary=1,
                                        amplitude_secondary=0, eclipse_depth=0,
-                                       baseline_magnitude=17.0, noise_function=None,
-                                       n_repeats=10, random_seed=None):
+                                       baseline_magnitude=17.0,
+                                       random_seed=None, output_in_flux=True, zero_point_flux=1.0):
         if random_seed is not None:
             np.random.seed(random_seed)
 
-        if noise_function is None:
-            noise_function = SyntheticLightCurveGenerator.get_mag_stddev_relation()
-        noise_std = noise_function(baseline_magnitude)
+        noise_function = SyntheticLightCurveGenerator.get_mag_stddev_relation()
 
         # Time vector
         t_observed = np.sort(np.random.uniform(0, time, n_points))
@@ -68,17 +75,28 @@ class SyntheticLightCurveGenerator:
         y_eclipse = eclipse_depth * np.sin(2 * np.pi * freq_secondary * t_observed) ** 30
         # Combine to get the complex light curve in magnitudes
         y_magnitude = baseline_magnitude + y_primary + y_secondary + y_eclipse
-        # Simulate repeated observations
-        repeated_observations = np.zeros((n_repeats, n_points))
-        for i in range(n_repeats):
-            uncertainties = np.random.normal(0, noise_std, n_points)
-            repeated_observations[i, :] = y_magnitude + uncertainties
+
+
+        noise_std = noise_function(y_magnitude)
+
+        uncertainties = np.random.normal(0, noise_std, n_points)
+        y_magnitude_observed = y_magnitude + uncertainties
 
         # Calculate the mean and standard deviation of the repeated observations
-        y_magnitude_observed = np.mean(repeated_observations, axis=0)
-        sigma = np.std(repeated_observations, axis=0)
-        return t_observed, y_magnitude_observed, sigma
+        sigma = uncertainties
 
+        if output_in_flux:
+            # Convert magnitudes to flux
+            y_flux_observed = SyntheticLightCurveGenerator.magnitude_to_flux(y_magnitude_observed, zero_point_flux)
+
+            # Calculate flux uncertainties
+            flux_uncertainties = SyntheticLightCurveGenerator.calculate_flux_uncertainty(y_magnitude_observed, sigma,
+                                                                                         zero_point_flux)
+
+            return t_observed, y_flux_observed, np.abs(flux_uncertainties)
+        else:
+            # Return in magnitude
+            return t_observed, y_magnitude_observed, sigma
 
 
 

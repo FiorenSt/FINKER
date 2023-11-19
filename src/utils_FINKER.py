@@ -8,7 +8,7 @@ from sklearn.neighbors import NearestNeighbors
 from sklearn.utils import resample
 import joblib
 from joblib import Parallel, delayed
-
+import seaborn as sns
 
 
 # Integrating the first five functions into the EfficientStats class
@@ -28,12 +28,8 @@ class FINKER:
             'use_grid': True,
             'alpha': 0.0618,
             'bandwidth_method': 'custom',
-            # Add other default parameters here
+            'show_bootstrap_histogram': True
         }
-
-        # Models for bootstrap
-        self.glm_model_path = 'glm_poly_model.pkl'  # Example attribute
-        self.poly_transform_path = 'poly_transform.pkl'  # Example attribute
 
         # Update with user-provided parameters
         self.params.update(kwargs)
@@ -44,10 +40,9 @@ class FINKER:
         """
         self.params[key] = value
 
-
     def gaussian_kernel(self, u, l_squared):
         """
-        Computes the Gaussian kernel.
+        Computes the Gaussian kernel with normalization.
 
         Parameters:
         -----------
@@ -59,9 +54,9 @@ class FINKER:
         Returns:
         --------
         np.ndarray
-            The computed Gaussian kernel values.
+            The computed Gaussian kernel values with normalization.
         """
-        return np.exp(-u ** 2 / (2 * l_squared))
+        return (1 / np.sqrt(2 * np.pi * l_squared)) * np.exp(-u ** 2 / (2 * l_squared))
 
 
     def silverman_bw(self, data):
@@ -102,7 +97,7 @@ class FINKER:
         """
         n = len(data)
         # Combine the standard deviation of the data and the period of the signal
-        return alpha * n ** (-1 / 5) if alpha is not None else None
+        return alpha * (n ** (-1 / 5)) if alpha is not None else None
 
     def adaptive_bw(self, data, k=None, metric='euclidean'):
         """
@@ -168,13 +163,15 @@ class FINKER:
             raise ValueError("Invalid kernel_type. Choose among 'gaussian'.")
 
         if uncertainties is not None:
-            uncertainty_weights = 1 / (uncertainties ** 2)
+            normalized_uncertainties =  (uncertainties-uncertainties.mean())/uncertainties.std()
+            normalized_uncertainties = normalized_uncertainties+ np.abs(normalized_uncertainties.min())+1
+            uncertainty_weights = 1 / (normalized_uncertainties ** 2)
             combined_weights = kernel_weights * uncertainty_weights
         else:
             combined_weights = kernel_weights
 
-        epsilon = 1e-10  # A small constant to avoid division by zero
-        return np.sum(y_observed * combined_weights) / (np.sum(combined_weights) + epsilon)
+        # A small constant to avoid division by zero
+        return np.sum(y_observed * combined_weights) / (np.sum(combined_weights))
 
 
     def kernel_regression_local_linear(self, x, x_observed, y_observed, uncertainties, l_squared, kernel_type='gaussian'):
@@ -406,11 +403,21 @@ class FINKER:
         y_smoothed_original = np.array([mapping_dict[x] for x in closest_x_grid])
 
         if uncertainties is not None:
-            # Compute the weighted residuals
-            weighted_residuals = (y_smoothed_original - y_observed[sort_indices]) / uncertainties[sort_indices]
 
+            normalized_uncertainties =  (uncertainties-uncertainties.mean())/uncertainties.std()
+            normalized_uncertainties = normalized_uncertainties+ np.abs(normalized_uncertainties.min())+1
+
+            # Compute the weighted residuals
+            weighted_residuals = (y_smoothed_original - y_observed[sort_indices]) / normalized_uncertainties[sort_indices]
             # Calculate the squared residual
             squared_residual = np.sum(weighted_residuals ** 2) / len(t_observed)
+
+            # # Compute the unweighted residuals
+            # residuals = y_smoothed_original - y_observed[sort_indices]
+            #
+            # # Calculate the squared residual
+            # squared_residual = np.sum(residuals ** 2) / len(t_observed)
+
 
         else:
             # Compute the unweighted residuals
@@ -586,7 +593,7 @@ class FINKER:
 
 
     def bootstrap_uncertainty_estimation(self, t_observed, y_observed, uncertainties, best_freq, n_bootstrap,
-                                         n_jobs, bootstrap_points, bootstrap_width=0.005, **kwargs):
+                                         n_jobs, bootstrap_points, bootstrap_width=0.005, verbose=1, **kwargs):
         """
         Perform bootstrap sampling and kernel regression to estimate uncertainties.
 
@@ -618,6 +625,9 @@ class FINKER:
         """
         self.params.update(kwargs)
 
+        # Generate a tight frequency range around the best frequency
+        tight_freq_range = np.linspace(best_freq * (1 - bootstrap_width), best_freq * (1 + bootstrap_width),
+                                       bootstrap_points)
 
         def bootstrap_task(_):
             if bootstrap_points <= 0:
@@ -641,11 +651,8 @@ class FINKER:
                                                               use_grid=self.params['use_grid'])
                 return result[4]  # Returning squared_residual and residuals
 
-            # Generate a tight frequency range around the best frequency
-            tight_freq_range = np.linspace(best_freq * (1 - bootstrap_width), best_freq * (1 + bootstrap_width), bootstrap_points)
-
             # Evaluate the small grid around the best frequency
-            with Parallel(n_jobs=n_jobs) as parallel:
+            with Parallel(n_jobs=n_jobs, verbose=verbose) as parallel:
                 tight_results = parallel(delayed(task_for_each_frequency)(f) for f in tight_freq_range)
 
             # Find the frequency with the smallest residual in the resampled data
@@ -655,6 +662,18 @@ class FINKER:
 
         # Bootstrap sampling
         bootstrap_freqs = [bootstrap_task(_) for _ in range(n_bootstrap)]
+
+        if self.params['show_bootstrap_histogram']:
+            plt.figure(figsize=(8,8))
+            plt.hist(bootstrap_freqs,bins=100)  # Adjust the bandwidth as needed
+            # Set x-axis limits based on the tight_freq_range
+            min_freq = np.min(tight_freq_range)
+            max_freq = np.max(tight_freq_range)
+            plt.xlim(min_freq, max_freq)
+            plt.title('KDE of Bootstrap Frequencies')
+            plt.xlabel('Frequency')
+            plt.ylabel('Density')
+            plt.show()
 
         # Calculate the standard deviation of the best frequencies as the uncertainty measure
         estimated_uncertainty = np.std(bootstrap_freqs)
