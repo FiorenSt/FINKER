@@ -2,6 +2,7 @@
 import matplotlib.pyplot as plt
 from joblib import Parallel, delayed
 import numpy as np
+from sklearn.utils import resample
 
 
 # Correcting the indentation and finishing the class definition
@@ -91,7 +92,8 @@ class EntropyFunctions:
         return H  # Return conditional entropy
 
     def parallel_conditional_entropy(self, t_observed, y_observed, freq_list, n_jobs=-2, verbose=0,
-                                     search_width=0.001, enable_tight_check=False, tight_check_points=1000):
+                                     search_width=0.001, enable_tight_check=False, tight_check_points=1000,
+                                     n_bootstrap=1000, bootstrap_points=100,bootstrap_width=0.01 ):
         """
         Calculate conditional entropy for a list of frequencies in parallel.
 
@@ -135,10 +137,84 @@ class EntropyFunctions:
 
         # Find the best frequency from combined results
         best_freq_combined = min(combined_result_dict, key=combined_result_dict.get)
-        best_entropy_combined = combined_result_dict[best_freq_combined]
 
-        return best_freq_combined, best_entropy_combined, combined_result_dict
 
+        # Bootstrap uncertainty estimation with residuals at optimal frequency
+        estimated_uncertainty = self.bootstrap_uncertainty_estimation_entropy(
+            t_observed=t_observed, y_observed=y_observed, best_freq=best_freq_combined, n_bootstrap=n_bootstrap,
+            n_jobs=n_jobs,bootstrap_width=bootstrap_width, bootstrap_points=bootstrap_points
+        )
+
+        return best_freq_combined, estimated_uncertainty, combined_result_dict
+
+
+
+
+    def bootstrap_uncertainty_estimation_entropy(self, t_observed, y_observed, best_freq, n_bootstrap,
+                                                 n_jobs=-2, bootstrap_width=0.05, bootstrap_points=1000,
+                                                 verbose=0,
+                                                 show_bootstrap_histogram=True):
+        """
+        Perform bootstrap sampling to estimate uncertainties in the best frequency based on conditional entropy.
+
+        Parameters:
+        - t_observed (array-like): The observed time values of the light curve.
+        - y_observed (array-like): The observed y-values (e.g., magnitude) of the light curve.
+        - best_freq (float): The best frequency determined from the previous analysis.
+        - n_bootstrap (int): The number of bootstrap samples to generate.
+        - n_jobs (int): The number of jobs to run in parallel.
+        - bootstrap_width (float): The width of the search range in the tight check.
+        - verbose (int): Verbosity level.
+
+        Returns:
+        - float: The estimated uncertainty in the best frequency.
+        """
+        # Generate a frequency range around the best frequency
+        tight_freq_range = np.linspace(best_freq * (1 - bootstrap_width), best_freq * (1 + bootstrap_width), bootstrap_points)
+
+        def bootstrap_task(_):
+            # Resample the observed data
+            t_resampled, y_resampled = resample(t_observed, y_observed)
+
+            def task_for_each_frequency(freq):
+                _, H = self.perform_conditional_entropy_phase_folding(t_resampled, y_resampled, freq)
+                return H
+
+            # Find the frequency with the smallest entropy in the resampled data
+            with Parallel(n_jobs=n_jobs, verbose=verbose) as parallel:
+                entropy_results = parallel(delayed(task_for_each_frequency)(f) for f in tight_freq_range)
+
+            return tight_freq_range[np.argmin(entropy_results)]
+
+        # Bootstrap sampling
+        bootstrap_freqs = [bootstrap_task(_) for _ in range(n_bootstrap)]
+
+        if  show_bootstrap_histogram:
+            plt.figure(figsize=(8, 8))
+
+            # Create histogram and capture bin heights
+            counts, bins, _ = plt.hist(bootstrap_freqs, bins=100)
+
+            # Determine the height of the tallest bin
+            max_height = max(counts)
+
+            # Set x-axis limits based on the tight_freq_range
+            min_freq = np.min(tight_freq_range)
+            max_freq = np.max(tight_freq_range)
+            plt.xlim(min_freq, max_freq)
+
+            # Plot vertical line at best_freq
+            plt.axvline(x=best_freq, color='r', linewidth=2, ymax=max_height / plt.ylim()[1])
+
+            plt.title('KDE of Bootstrap Frequencies')
+            plt.xlabel('Frequency')
+            plt.ylabel('Density')
+            plt.show()
+
+        # Calculate the standard deviation of the best frequencies as the uncertainty measure
+        estimated_uncertainty = np.std(bootstrap_freqs)
+
+        return estimated_uncertainty
 
 
 

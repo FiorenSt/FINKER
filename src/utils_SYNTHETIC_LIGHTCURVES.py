@@ -83,7 +83,7 @@ class SyntheticLightCurveGenerator:
         y_magnitude_observed = y_magnitude + uncertainties
 
         # Calculate the mean and standard deviation of the repeated observations
-        sigma = uncertainties
+        sigma = noise_std
 
         if output_in_flux:
             # Convert magnitudes to flux

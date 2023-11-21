@@ -131,7 +131,7 @@ class FINKER:
 
         return avg_bandwidths, nbrs
 
-    def kernel_regression_local_constant(self, x, x_observed, y_observed, uncertainties, l_squared, kernel_type='gaussian'):
+    def kernel_regression_local_constant(self, x, x_observed, y_observed, l_squared, kernel_type='gaussian'):
         """
         Performs kernel regression with a local constant approach.
 
@@ -162,19 +162,11 @@ class FINKER:
         else:
             raise ValueError("Invalid kernel_type. Choose among 'gaussian'.")
 
-        if uncertainties is not None:
-            normalized_uncertainties =  (uncertainties-uncertainties.mean())/uncertainties.std()
-            normalized_uncertainties = normalized_uncertainties+ np.abs(normalized_uncertainties.min())+1
-            uncertainty_weights = 1 / (normalized_uncertainties ** 2)
-            combined_weights = kernel_weights * uncertainty_weights
-        else:
-            combined_weights = kernel_weights
-
         # A small constant to avoid division by zero
-        return np.sum(y_observed * combined_weights) / (np.sum(combined_weights))
+        return np.sum(y_observed * kernel_weights) / (np.sum(kernel_weights))
 
 
-    def kernel_regression_local_linear(self, x, x_observed, y_observed, uncertainties, l_squared, kernel_type='gaussian'):
+    def kernel_regression_local_linear(self, x, x_observed, y_observed, l_squared, kernel_type='gaussian'):
         """
         Performs kernel regression with a local linear approach.
 
@@ -207,9 +199,6 @@ class FINKER:
         else:
             raise ValueError("Invalid kernel_type. Choose among 'gaussian', 'locally_periodic', or 'periodic'.")
 
-        if uncertainties is not None:
-            uncertainty_weights = 1 / (uncertainties ** 2)
-            kernel_weights *= uncertainty_weights
 
         # Prepare design matrix
         X = np.column_stack([np.ones(n), x_observed])
@@ -264,8 +253,8 @@ class FINKER:
         return reference_points[min_indices]
 
 
-    def nonparametric_kernel_regression(self, t_observed, y_observed, freq, l=None, alpha=None,
-                                        uncertainties=None, grid_size=300,
+    def nonparametric_kernel_regression(self, t_observed, y_observed, uncertainties, freq, l=None, alpha=None,
+                                        grid_size=300,
                                         show_plot=False, kernel_type='gaussian',
                                         regression_type='local_constant', bandwidth_method='custom',
                                         adaptive_neighbours=None, use_grid=False):
@@ -337,15 +326,6 @@ class FINKER:
         phase_mirrored_lower = phase_sorted[:n_mirror] + 1
         y_mirrored_lower = y_sorted[:n_mirror]
 
-        # Mirror uncertainties if they are provided
-        if uncertainties is not None:
-            uncertainties_sorted = uncertainties[sort_indices]
-            uncertainties_mirrored_upper = uncertainties_sorted[-n_mirror:]
-            uncertainties_mirrored_lower = uncertainties_sorted[:n_mirror]
-            uncertainties_extended = np.concatenate(
-                [uncertainties_mirrored_upper, uncertainties_sorted, uncertainties_mirrored_lower])
-        else:
-            uncertainties_extended = None
 
         # Combine the original and mirrored points without modulus operation
         phase_extended = np.concatenate([phase_mirrored_upper, phase_sorted, phase_mirrored_lower])
@@ -385,8 +365,8 @@ class FINKER:
                 # Use the average distance as the bandwidth for this specific x
                 l = np.mean(distances)
                 l_squared = l ** 2
-            y_estimate = regression_function(x, phase_extended, y_extended, uncertainties_extended, l_squared,
-                                             kernel_type)
+            y_estimate = regression_function(x=x, x_observed=phase_extended, y_observed=y_extended, l_squared=l_squared,
+                                             kernel_type=kernel_type)
             y_estimates.append(y_estimate)
 
         # Post-processing and plotting
@@ -402,37 +382,23 @@ class FINKER:
         mapping_dict = dict(zip(x_eval_in_interval, y_estimates_in_interval))
         y_smoothed_original = np.array([mapping_dict[x] for x in closest_x_grid])
 
-        if uncertainties is not None:
 
-            normalized_uncertainties =  (uncertainties-uncertainties.mean())/uncertainties.std()
-            normalized_uncertainties = normalized_uncertainties+ np.abs(normalized_uncertainties.min())+1
+        # Compute the unweighted residuals
+        normalized_uncertainties = (uncertainties - uncertainties.mean()) / uncertainties.std()
+        normalized_uncertainties = normalized_uncertainties + np.abs(normalized_uncertainties.min()) + 1
 
-            # Compute the weighted residuals
-            weighted_residuals = (y_smoothed_original - y_observed[sort_indices]) / normalized_uncertainties[sort_indices]
-            # Calculate the squared residual
-            squared_residual = np.sum(weighted_residuals ** 2) / len(t_observed)
+        # Compute the weighted residuals
+        residuals = (y_smoothed_original - y_observed[sort_indices]) / normalized_uncertainties[sort_indices]
+        #residuals = (y_smoothed_original - y_observed[sort_indices]) / uncertainties[sort_indices]
 
-            # # Compute the unweighted residuals
-            # residuals = y_smoothed_original - y_observed[sort_indices]
-            #
-            # # Calculate the squared residual
-            # squared_residual = np.sum(residuals ** 2) / len(t_observed)
-
-
-        else:
-            # Compute the unweighted residuals
-            residuals = y_smoothed_original - y_observed[sort_indices]
-
-            # Calculate the squared residual
-            squared_residual = np.sum(residuals ** 2) / len(t_observed)
+        # Calculate the squared residual
+        squared_residual = np.sum(residuals ** 2) / len(t_observed)
 
         if show_plot:
             plt.figure(figsize=(10, 6))
-            if uncertainties is not None:
-                plt.errorbar(phase_sorted, y_observed[sort_indices], yerr=uncertainties[sort_indices], fmt='.',
-                             markersize=5, label='Observed with Uncertainty', zorder=0)
-            else:
-                plt.scatter(phase_sorted, y_observed[sort_indices], s=5, label='Observed')
+            plt.errorbar(phase_sorted, y_observed[sort_indices], yerr=uncertainties[sort_indices], fmt='.',
+                         markersize=5, label='Observed with Uncertainty', zorder=0)
+
             plt.plot(x_eval_in_interval, y_estimates_in_interval, 'r-', label='Smoothed', linewidth=2)
             plt.xlabel('Phase')
             plt.ylabel('Magnitude')
@@ -449,7 +415,7 @@ class FINKER:
         else:
             return phase_sorted, y_smoothed_original, x_eval_in_interval, y_estimates_in_interval, squared_residual, l
 
-    def parallel_nonparametric_kernel_regression(self, t_observed, y_observed,freq_list, uncertainties=None,  use_grid=None,
+    def parallel_nonparametric_kernel_regression(self, t_observed, y_observed, uncertainties, freq_list, use_grid=None,
                                                  n_jobs=-2, verbose=0, n_bootstrap=1000,
                                                  tight_check_points=1000, search_width=0.001,
                                                  estimate_uncertainties=False, bootstrap_points=100, bootstrap_width=0.005,
@@ -536,7 +502,7 @@ class FINKER:
         if estimate_uncertainties:
             # Bootstrap uncertainty estimation with residuals at optimal frequency
             estimated_uncertainty = self.bootstrap_uncertainty_estimation(
-                t_observed, y_observed, kwargs.get('uncertainties'), final_best_freq, n_bootstrap,
+                t_observed, y_observed, uncertainties, final_best_freq, n_bootstrap,
                 n_jobs,bootstrap_points,bootstrap_width
             )
 
@@ -633,12 +599,8 @@ class FINKER:
             if bootstrap_points <= 0:
                 raise ValueError(f"Invalid number of tight check points: {bootstrap_points}. Must be positive.")
 
-            # Check if uncertainties is None
-            if uncertainties is not None:
-                t_resampled, y_resampled, uncertainties_resamples = resample(t_observed, y_observed, uncertainties)
-            else:
-                t_resampled, y_resampled = resample(t_observed, y_observed)
-                uncertainties_resamples = None
+            t_resampled, y_resampled, uncertainties_resamples = resample(t_observed, y_observed, uncertainties)
+
 
             def task_for_each_frequency(freq):
                 result = self.nonparametric_kernel_regression(t_observed=t_resampled, y_observed=y_resampled,
@@ -652,7 +614,7 @@ class FINKER:
                 return result[4]  # Returning squared_residual and residuals
 
             # Evaluate the small grid around the best frequency
-            with Parallel(n_jobs=n_jobs, verbose=verbose) as parallel:
+            with Parallel(n_jobs=n_jobs) as parallel:
                 tight_results = parallel(delayed(task_for_each_frequency)(f) for f in tight_freq_range)
 
             # Find the frequency with the smallest residual in the resampled data
@@ -664,12 +626,22 @@ class FINKER:
         bootstrap_freqs = [bootstrap_task(_) for _ in range(n_bootstrap)]
 
         if self.params['show_bootstrap_histogram']:
-            plt.figure(figsize=(8,8))
-            plt.hist(bootstrap_freqs,bins=100)  # Adjust the bandwidth as needed
+            plt.figure(figsize=(8, 8))
+
+            # Create histogram and capture bin heights
+            counts, bins, _ = plt.hist(bootstrap_freqs, bins=100)
+
+            # Determine the height of the tallest bin
+            max_height = max(counts)
+
             # Set x-axis limits based on the tight_freq_range
             min_freq = np.min(tight_freq_range)
             max_freq = np.max(tight_freq_range)
             plt.xlim(min_freq, max_freq)
+
+            # Plot vertical line at best_freq
+            plt.axvline(x=best_freq, color='r', linewidth=2, ymax=max_height / plt.ylim()[1])
+
             plt.title('KDE of Bootstrap Frequencies')
             plt.xlabel('Frequency')
             plt.ylabel('Density')
