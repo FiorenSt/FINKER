@@ -93,7 +93,7 @@ class EntropyFunctions:
 
     def parallel_conditional_entropy(self, t_observed, y_observed, freq_list, n_jobs=-2, verbose=0,
                                      search_width=0.001, enable_tight_check=False, tight_check_points=1000,
-                                     n_bootstrap=1000, bootstrap_points=100,bootstrap_width=0.01 ):
+                                     n_bootstrap=1000, bootstrap_points=100,bootstrap_width=0.01, show_bootstrap_histogram=False):
         """
         Calculate conditional entropy for a list of frequencies in parallel.
 
@@ -142,7 +142,7 @@ class EntropyFunctions:
         # Bootstrap uncertainty estimation with residuals at optimal frequency
         estimated_uncertainty = self.bootstrap_uncertainty_estimation_entropy(
             t_observed=t_observed, y_observed=y_observed, best_freq=best_freq_combined, n_bootstrap=n_bootstrap,
-            n_jobs=n_jobs,bootstrap_width=bootstrap_width, bootstrap_points=bootstrap_points
+            n_jobs=n_jobs,bootstrap_width=bootstrap_width, bootstrap_points=bootstrap_points,show_bootstrap_histogram=show_bootstrap_histogram
         )
 
         return best_freq_combined, estimated_uncertainty, combined_result_dict
@@ -153,7 +153,7 @@ class EntropyFunctions:
     def bootstrap_uncertainty_estimation_entropy(self, t_observed, y_observed, best_freq, n_bootstrap,
                                                  n_jobs=-2, bootstrap_width=0.05, bootstrap_points=1000,
                                                  verbose=0,
-                                                 show_bootstrap_histogram=True):
+                                                 show_bootstrap_histogram=False):
         """
         Perform bootstrap sampling to estimate uncertainties in the best frequency based on conditional entropy.
 

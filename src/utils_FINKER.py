@@ -8,7 +8,8 @@ from sklearn.neighbors import NearestNeighbors
 from sklearn.utils import resample
 import joblib
 from joblib import Parallel, delayed
-import seaborn as sns
+import matplotlib
+matplotlib.use('TkAgg')  # or another interactive backend
 
 
 # Integrating the first five functions into the EfficientStats class
@@ -418,7 +419,7 @@ class FINKER:
     def parallel_nonparametric_kernel_regression(self, t_observed, y_observed, uncertainties, freq_list, use_grid=None,
                                                  n_jobs=-2, verbose=0, n_bootstrap=1000,
                                                  tight_check_points=1000, search_width=0.001,
-                                                 estimate_uncertainties=False, bootstrap_points=100, bootstrap_width=0.005,
+                                                 estimate_uncertainties=False, bootstrap_points=100, bootstrap_width=0.005, save_bootstrap_freq = False,
                                                  **kwargs):
         """
         Apply nonparametric_kernel_regression for a list of frequencies in parallel,
@@ -503,7 +504,7 @@ class FINKER:
             # Bootstrap uncertainty estimation with residuals at optimal frequency
             estimated_uncertainty = self.bootstrap_uncertainty_estimation(
                 t_observed, y_observed, uncertainties, final_best_freq, n_bootstrap,
-                n_jobs,bootstrap_points,bootstrap_width
+                n_jobs,bootstrap_points,bootstrap_width,save_bootstrap_freq
             )
 
         return final_best_freq, estimated_uncertainty, combined_result_dict
@@ -559,7 +560,7 @@ class FINKER:
 
 
     def bootstrap_uncertainty_estimation(self, t_observed, y_observed, uncertainties, best_freq, n_bootstrap,
-                                         n_jobs, bootstrap_points, bootstrap_width=0.005, verbose=1, **kwargs):
+                                         n_jobs, bootstrap_points, bootstrap_width, save_bootstrap_freq, **kwargs):
         """
         Perform bootstrap sampling and kernel regression to estimate uncertainties.
 
@@ -650,7 +651,10 @@ class FINKER:
         # Calculate the standard deviation of the best frequencies as the uncertainty measure
         estimated_uncertainty = np.std(bootstrap_freqs)
 
-        return estimated_uncertainty
+        if save_bootstrap_freq:
+            return bootstrap_freqs
+        else:
+            return estimated_uncertainty
 
 
     def process_multiband_data(self, multiband_data, freq_list, **kwargs):
