@@ -49,7 +49,8 @@ best_freq, freq_err, result_dict = finker.parallel_nonparametric_kernel_regressi
 )
 ```
 
-Replace `t_observed` and `y_observed` with your observations and `freq` with the folding frequency.
+Replace `t_observed`, `y_observed`, and `uncertainties` with your observations in numpy arrays. 
+Substitute `freq` with the range of folding frequencies you want to test. A fine grid with 0.0001 distance between grid points is enough for most cases.
 
 ## Contributing
 
