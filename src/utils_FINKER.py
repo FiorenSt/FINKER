@@ -12,7 +12,6 @@ import matplotlib
 matplotlib.use('TkAgg')  # or another interactive backend
 
 
-# Integrating the first five functions into the EfficientStats class
 
 class FINKER:
     def __init__(self, **kwargs):
@@ -131,6 +130,7 @@ class FINKER:
         avg_bandwidths = np.mean(distances[:, 1:], axis=1)
 
         return avg_bandwidths, nbrs
+
 
     def kernel_regression_local_constant(self, x, x_observed, y_observed, l_squared, kernel_type='gaussian'):
         """
@@ -501,13 +501,17 @@ class FINKER:
 
         estimated_uncertainty = None
         if estimate_uncertainties:
-            # Bootstrap uncertainty estimation with residuals at optimal frequency
             estimated_uncertainty = self.bootstrap_uncertainty_estimation(
                 t_observed, y_observed, uncertainties, final_best_freq, n_bootstrap,
-                n_jobs,bootstrap_points,bootstrap_width,save_bootstrap_freq
-            )
+                n_jobs,bootstrap_points,bootstrap_width,save_bootstrap_freq)
+
+            # estimated_uncertainty = self.jackknife_uncertainty_estimation(
+            #     t_observed=t_observed, y_observed=y_observed, uncertainties=uncertainties, best_freq=final_best_freq,
+            #     n_jobs=n_jobs,jackknife_points=bootstrap_points,jackknife_width=bootstrap_width,save_bootstrap_freq=save_bootstrap_freq
+            # )
 
         return final_best_freq, estimated_uncertainty, combined_result_dict
+
 
 
     def check_frequency_significance(self, freq, objective_values, freq_range, **kwargs):
@@ -596,16 +600,16 @@ class FINKER:
         tight_freq_range = np.linspace(best_freq * (1 - bootstrap_width), best_freq * (1 + bootstrap_width),
                                        bootstrap_points)
 
+
         def bootstrap_task(_):
             if bootstrap_points <= 0:
                 raise ValueError(f"Invalid number of tight check points: {bootstrap_points}. Must be positive.")
 
-            t_resampled, y_resampled, uncertainties_resamples = resample(t_observed, y_observed, uncertainties)
-
+            t_resampled, y_resampled, uncertainties_resampled = resample(t_observed, y_observed, uncertainties)
 
             def task_for_each_frequency(freq):
                 result = self.nonparametric_kernel_regression(t_observed=t_resampled, y_observed=y_resampled,
-                                                              uncertainties=uncertainties_resamples,
+                                                              uncertainties=uncertainties_resampled,
                                                               freq=freq,
                                                               kernel_type=self.params['kernel_type'],
                                                               regression_type=self.params['regression_type'],
@@ -687,7 +691,7 @@ class FINKER:
             # Perform parallel regression for the current band
             best_freq, estimated_uncertainty, significance_status, result_dict, final_best_residual = \
                 self.parallel_nonparametric_kernel_regression(
-                    t_observed, y_observed, freq_list, uncertainties=uncertainties, **self.params
+                    t_observed, y_observed, uncertainties, freq_list,  **kwargs
                 )
 
             # Store results for the current band
