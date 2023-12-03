@@ -46,7 +46,7 @@ class SyntheticLightCurveGenerator:
 
     @staticmethod
     def magnitude_to_flux(magnitude, zero_point_flux=1.0):
-        return zero_point_flux * np.power(10, -0.4 * magnitude)
+        return zero_point_flux * np.power(10, -0.4 * (magnitude-23.9))
 
     @staticmethod
     def calculate_flux_uncertainty(magnitude, magnitude_uncertainty, zero_point_flux=1.0):

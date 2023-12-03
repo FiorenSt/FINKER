@@ -99,37 +99,33 @@ class FINKER:
         # Combine the standard deviation of the data and the period of the signal
         return alpha * (n ** (-1 / 5)) if alpha is not None else None
 
-    def adaptive_bw(self, data, k=None, metric='euclidean'):
+    def adaptive_bw(self, data, metric='euclidean'):
         """
-        Calculates the average distance to k-nearest neighbors for each point in data.
+        Calculates adaptive bandwidth based on the distance to the k-th nearest neighbor.
 
         Parameters:
         -----------
         data : array_like
             The input data.
-        k : int, optional
-            The number of nearest neighbors.
-        metric : str, optional
-            The distance metric to use.
 
         Returns:
         --------
-        tuple
-            The average bandwidths and the NearestNeighbors instance.
+        float
+            The calculated adaptive bandwidth.
         """
-        if k is None:
-            k = 10  # Default value, can be set to any desired number
+        n = len(data)
+        #k = round(0.538 * n ** (4/5))
+        k = round(np.log(n))
 
-        # Initialize NearestNeighbors
-        nbrs = NearestNeighbors(n_neighbors=k + 1, algorithm='auto', metric=metric).fit(data)
 
-        # Get the distances and indices of k+1 nearest neighbors for each point
+        # Calculate the distance to the k-th nearest neighbors for each point
+        nbrs = NearestNeighbors(n_neighbors=k+1, algorithm='auto', metric=metric).fit(data)
         distances, _ = nbrs.kneighbors(data)
 
-        # Calculate the average distance to k nearest neighbors, skipping the 0-th index
-        avg_bandwidths = np.mean(distances[:, 1:], axis=1)
+        # Bandwidth for each point is the distance to its k-th nearest neighbor
+        bandwidths = np.maximum(np.mean(distances[:, 1:], axis=1), 1e-6)
+        return bandwidths
 
-        return avg_bandwidths, nbrs
 
 
     def kernel_regression_local_constant(self, x, x_observed, y_observed, l_squared, kernel_type='gaussian'):
@@ -258,7 +254,7 @@ class FINKER:
                                         grid_size=300,
                                         show_plot=False, kernel_type='gaussian',
                                         regression_type='local_constant', bandwidth_method='custom',
-                                        adaptive_neighbours=None, use_grid=False):
+                                        use_grid=False):
         """
         Performs nonparametric kernel regression.
 
@@ -286,8 +282,6 @@ class FINKER:
             Type of regression to perform.
         bandwidth_method : str, optional
             Method for bandwidth selection.
-        adaptive_neighbours : int, optional
-            Number of neighbours for adaptive bandwidth.
         use_grid : bool, optional
             If True, use grid for evaluation, else use observed points.
 
@@ -351,21 +345,17 @@ class FINKER:
         # Initialization for adaptive bandwidth
         adaptive_bandwidths = None
         if bandwidth_method == 'adaptive':
-            if adaptive_neighbours is None:
-                adaptive_neighbours = int(np.log(len(phase_extended)))
-            adaptive_bandwidths, nbrs = self.adaptive_bw(phase_extended.reshape(-1, 1), k=adaptive_neighbours)
+            adaptive_bandwidths = self.adaptive_bw(phase_extended.reshape(-1, 1))
         else:
             l_squared = l ** 2
 
         # Main loop for kernel regression
         y_estimates = []
-        for x in x_eval:
+        for i, x in enumerate(x_eval):
             if bandwidth_method == 'adaptive':
-                # Find k nearest neighbors and their distances
-                distances, _ = nbrs.kneighbors(np.array([[x]]))
-                # Use the average distance as the bandwidth for this specific x
-                l = np.mean(distances)
-                l_squared = l ** 2
+                # Use the adaptive bandwidth for the current point
+                l_squared = adaptive_bandwidths[i] ** 2
+            # Perform regression with the selected bandwidth
             y_estimate = regression_function(x=x, x_observed=phase_extended, y_observed=y_extended, l_squared=l_squared,
                                              kernel_type=kernel_type)
             y_estimates.append(y_estimate)
@@ -464,6 +454,9 @@ class FINKER:
 
         if use_grid:
             print('Using a 300 points grid.')
+
+        self.set_parameter('use_grid',use_grid)
+
 
         def task_for_each_frequency(freq):
             result = self.nonparametric_kernel_regression(t_observed=t_observed, y_observed=y_observed,
@@ -599,6 +592,7 @@ class FINKER:
         # Generate a tight frequency range around the best frequency
         tight_freq_range = np.linspace(best_freq * (1 - bootstrap_width), best_freq * (1 + bootstrap_width),
                                        bootstrap_points)
+
 
 
         def bootstrap_task(_):
