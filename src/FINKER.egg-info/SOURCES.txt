@@ -1,0 +1,8 @@
+LICENSE
+README.md
+setup.py
+src/FINKER.egg-info/PKG-INFO
+src/FINKER.egg-info/SOURCES.txt
+src/FINKER.egg-info/dependency_links.txt
+src/FINKER.egg-info/requires.txt
+src/FINKER.egg-info/top_level.txt

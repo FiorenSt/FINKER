@@ -10,9 +10,8 @@ FINKER (Frequency Identification through Nonparametric Kernel Regression) is an 
 ## Features
 
 - **Local Linear and Constant Regression**: Utilizes local regression techniques for precise modeling.
-- **Kernel Functions**: Includes Gaussian, periodic, and locally periodic kernels for diverse applications.
-- **Bandwidth Calculation**: Implements a custom fixed bandwidth for computational efficiency. Multiple other options are available: Silverman's rule, Scott's rule, and an Adaptive bandwidth.
-- **Multiband Processing**: Capable of handling multi-frequency data efficiently.
+- **Kernel Functions and Bandwidth Calculation**: Includes Gaussian kernel and implements a custom fixed bandwidth for computational efficiency. Multiple other options are available: Silverman's rule, Scott's rule, and an Adaptive bandwidth.
+- **Multiband Processing**: Capable of handling multi-band data efficiently.
 - **Error Handling**: Robust to measurement uncertainties, enhancing reliability in real-world datasets.
 
 ## Installation
@@ -39,8 +38,8 @@ finker = FINKER()
 best_freq, freq_err, result_dict = finker.parallel_nonparametric_kernel_regression(
     t_observed=t_observed,
     y_observed=y_observed,
-    uncertainties=uncertainties,
     freq_list=freq,
+    uncertainties=None,
     show_plot=False,
     kernel_type='gaussian',
     regression_type='local_constant',
@@ -49,8 +48,7 @@ best_freq, freq_err, result_dict = finker.parallel_nonparametric_kernel_regressi
 )
 ```
 
-Replace `t_observed`, `y_observed`, and `uncertainties` with your observations in numpy arrays. 
-Substitute `freq` with the range of folding frequencies you want to test. A fine grid with 0.0001 distance between grid points is enough for most cases.
+Replace `t_observed` and `y_observed` with your observations and `freq` with the folding frequency.
 
 ## Contributing
 
