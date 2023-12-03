@@ -17,7 +17,6 @@ setup(
         'scipy',
         'matplotlib',
         'sklearn',
-        # Add any other dependencies your package needs
     ],
     classifiers=[
         'Programming Language :: Python :: 3',
