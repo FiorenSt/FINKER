@@ -2,8 +2,8 @@
 from setuptools import setup, find_packages
 
 setup(
-    name='FINKER',
-    version='0.1.0',
+    name='FINKER2',
+    version='0.1.1',
     author='Fiorenzo Stoppa',
     author_email='f.stoppa@astro.ru.nl',
     description='A universal approach to optimal frequency identification using nonparametric kernel regression',
