@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
-Name: FINKER2
-Version: 0.1.1
+Name: FINKER3
+Version: 0.1.2
 Summary: A universal approach to optimal frequency identification using nonparametric kernel regression
 Home-page: https://github.com/FiorenSt/FINKER
 Author: Fiorenzo Stoppa
@@ -11,6 +11,10 @@ Classifier: Operating System :: OS Independent
 Requires-Python: >=3.6
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: numpy
+Requires-Dist: scipy
+Requires-Dist: matplotlib
+Requires-Dist: scikit-learn
 
 
 
@@ -52,8 +56,8 @@ finker = FINKER()
 best_freq, freq_err, result_dict = finker.parallel_nonparametric_kernel_regression(
     t_observed=t_observed,
     y_observed=y_observed,
+    uncertainties=uncertainties,
     freq_list=freq,
-    uncertainties=None,
     show_plot=False,
     kernel_type='gaussian',
     regression_type='local_constant',
@@ -62,7 +66,8 @@ best_freq, freq_err, result_dict = finker.parallel_nonparametric_kernel_regressi
 )
 ```
 
-Replace `t_observed` and `y_observed` with your observations and `freq` with the folding frequency.
+Replace `t_observed`, `y_observed`, and `uncertainties` with numpy arrays of your observations.
+Replace `freq` with a numpy array of the ferquencies to search.
 
 ## Contributing
 
