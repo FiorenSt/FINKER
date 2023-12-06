@@ -48,7 +48,8 @@ best_freq, freq_err, result_dict = finker.parallel_nonparametric_kernel_regressi
 )
 ```
 
-Replace `t_observed` and `y_observed` with your observations and `freq` with the folding frequency.
+Replace `t_observed`, `y_observed`, and `uncertainties` with numpy arrays of your observations.
+Replace `freq` with a numpy array of the ferquencies to search.
 
 ## Contributing
 
