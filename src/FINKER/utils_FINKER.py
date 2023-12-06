@@ -8,8 +8,7 @@ from sklearn.neighbors import NearestNeighbors
 from sklearn.utils import resample
 import joblib
 from joblib import Parallel, delayed
-import matplotlib
-matplotlib.use('TkAgg')  # or another interactive backend
+
 
 
 

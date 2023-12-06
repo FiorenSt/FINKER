@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='FINKER3',
-    version='0.1.2',
+    version='0.1.7',
     author='Fiorenzo Stoppa',
     author_email='f.stoppa@astro.ru.nl',
     description='A universal approach to optimal frequency identification using nonparametric kernel regression',
