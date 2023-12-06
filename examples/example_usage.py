@@ -1,6 +1,5 @@
-from src.utils_SYNTHETIC_LIGHTCURVES import *
-from src.utils_FINKER import *
-from src.utils_Entropy import *
+from FINKER.utils_FINKER import *
+from FINKER.utils_SYNTHETIC_LIGHTCURVES import *
 
 
 # Create an instance of the class

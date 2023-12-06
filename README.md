@@ -16,12 +16,10 @@ FINKER (Frequency Identification through Nonparametric Kernel Regression) is an 
 
 ## Installation
 
-To use FINKER, clone the repository and install the required dependencies:
+To use FINKER, clone the repository or install with:
 
 ```bash
-git clone https://github.com/FiorenSt/FINKER/
-cd FINKER
-pip install -r requirements.txt
+pip install FINKER
 ```
 
 ## Usage
@@ -29,7 +27,7 @@ pip install -r requirements.txt
 Here's a simple example to demonstrate the use of FINKER's kernel regression functions:
 
 ```python
-from FINKER.src.utils_FINKER import *
+from FINKER.utils_FINKER import *
 
 # Creating a FINKER instance
 finker = FINKER()
