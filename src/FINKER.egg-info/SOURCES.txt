@@ -1,0 +1,13 @@
+LICENSE
+README.md
+setup.py
+src/FINKER/__init__.py
+src/FINKER/utils_Entropy.py
+src/FINKER/utils_FINKER.py
+src/FINKER/utils_SYNTHETIC_LIGHTCURVES.py
+src/FINKER.egg-info/PKG-INFO
+src/FINKER.egg-info/SOURCES.txt
+src/FINKER.egg-info/dependency_links.txt
+src/FINKER.egg-info/requires.txt
+src/FINKER.egg-info/top_level.txt
+tests/test_utils.py
