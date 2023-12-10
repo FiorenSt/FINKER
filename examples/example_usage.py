@@ -7,16 +7,13 @@ generator = SyntheticLightCurveGenerator()
 
 # Now call the method on this instance
 t_observed, y_observed, uncertainties = generator.generate_synthetic_light_curve(
-    n_points=500,
+    n_points=100,
     time=10,
-    freq_primary=1,
-    amplitude_primary=1,
-    freq_secondary=1,
-    amplitude_secondary=0,
-    eclipse_depth=0,
+    freq_primary=0.6,
+    snr_primary=7,
     baseline_magnitude=17.0,
-    random_seed=None,
-    output_in_flux=True,
+    random_seed=5,
+    output_in_flux=False,
     zero_point_flux=1.0
 )
 
@@ -33,7 +30,7 @@ plt.show()
 
 
 # Set up the frequency range for the search
-freq = np.linspace(0.001,5,10000)
+freq_list = np.linspace(0.001,5,50000)
 
 # Creating a FINKER instance
 finker = FINKER()
@@ -43,14 +40,18 @@ best_freq, freq_err, result_dict = finker.parallel_nonparametric_kernel_regressi
     t_observed=t_observed,
     y_observed=y_observed,
     uncertainties=uncertainties,
-    freq_list=freq,
+    freq_list=freq_list,
     show_plot=False,
     kernel_type='gaussian',
     regression_type='local_constant',
     bandwidth_method='custom',
     n_jobs=-2,
-    tight_check_points=1000,
-    estimate_uncertainties=False
+    tight_check_points=5000,
+    search_width = 0.01,
+    estimate_uncertainties=False,
+    n_bootstrap= 500,
+    bootstrap_width = 0.01,
+    bootstrap_points= 500  
 )
 
 
@@ -63,3 +64,15 @@ ax.set_xlabel('Frequency', fontsize=18)
 ax.set_ylabel('Squared Residuals', fontsize=18)
 ax.tick_params(axis='both', which='major', labelsize=14)
 ax.legend(loc='lower right', fontsize=14)
+
+
+# Plot the light curve folded at the estimated frequency
+phase, y_smoothed, _, _, bw, squared_residual = finker.nonparametric_kernel_regression(t_observed=t_observed,
+                                                                                 y_observed=y_observed,
+                                                                                 uncertainties=uncertainties,
+                                                                                 freq= best_freq , kernel_type='gaussian',
+                                                                                 regression_type='local_constant',
+                                                                                 bandwidth_method='custom',
+                                                                                 alpha=0.0618,
+                                                                                 show_plot=True,
+                                                                                 use_grid=True, grid_size=300)
