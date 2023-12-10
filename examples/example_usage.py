@@ -5,11 +5,16 @@ from FINKER.utils_SYNTHETIC_LIGHTCURVES import *
 # Create an instance of the class
 generator = SyntheticLightCurveGenerator()
 
+
+# Test frequency to recover
+true_freq = 0.6
+
+
 # Now call the method on this instance
 t_observed, y_observed, uncertainties = generator.generate_synthetic_light_curve(
     n_points=100,
     time=10,
-    freq_primary=0.6,
+    freq_primary=true_freq,
     snr_primary=7,
     baseline_magnitude=17.0,
     random_seed=5,
@@ -60,7 +65,7 @@ best_freq, freq_err, result_dict = finker.parallel_nonparametric_kernel_regressi
 fig, ax = plt.subplots(figsize=(8, 6))
 ax.scatter(list(result_dict.keys()), list(result_dict.values()), s=1)
 ax.axvline(x=best_freq, color='g', linestyle='--', label=f'Best Frequency: {best_freq:.7f}', lw=2)
-ax.axvline(x=1, color='black', linestyle='--', label=f'True Frequency: {1:.7f}', lw=2)
+ax.axvline(x=true_freq, color='black', linestyle='--', label=f'True Frequency: {true_freq:.7f}', lw=2)
 ax.set_xlabel('Frequency', fontsize=18)
 ax.set_ylabel('Squared Residuals', fontsize=18)
 ax.tick_params(axis='both', which='major', labelsize=14)
