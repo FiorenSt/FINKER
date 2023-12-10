@@ -37,14 +37,17 @@ class SyntheticLightCurveGenerator:
 
 
     def generate_synthetic_light_curve(self, n_points=500, time=10, freq_primary=1,
-                                       amplitude_primary=1, freq_secondary=1,
-                                       amplitude_secondary=0, eclipse_depth=0,
+                                       snr_primary=1, freq_secondary=1,
+                                       snr_secondary=0, eclipse_depth=0,
                                        baseline_magnitude=17.0, random_seed=None,
                                        output_in_flux=True, zero_point_flux=1.0):
         if random_seed is not None:
             np.random.seed(random_seed)
 
         noise_function = self.get_mag_stddev_relation()
+
+        amplitude_primary = snr_primary * noise_function(baseline_magnitude)
+        amplitude_secondary = snr_secondary * noise_function(baseline_magnitude)
 
         # Time vector
         t_observed = np.sort(np.random.uniform(0, time, n_points))
