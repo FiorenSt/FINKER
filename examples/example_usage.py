@@ -46,6 +46,7 @@ best_freq, freq_err, result_dict = finker.parallel_nonparametric_kernel_regressi
     regression_type='local_constant',
     bandwidth_method='custom',
     n_jobs=-2,
+    verbose=1,
     tight_check_points=5000,
     search_width = 0.01,
     estimate_uncertainties=False,

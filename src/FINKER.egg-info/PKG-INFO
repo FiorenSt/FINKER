@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: FINKER
-Version: 1.0.0
+Version: 1.0.1
 Summary: A universal approach to optimal frequency identification using nonparametric kernel regression
 Home-page: https://github.com/FiorenSt/FINKER
 Author: Fiorenzo Stoppa
